@@ -1,0 +1,120 @@
+Here’s a clean, copy-pasteable, step-by-step to install **MongoDB Community Server** on **Ubuntu 20.04.3 (Focal)** running inside **VMware Workstation**.
+
+## Quick VMware checklist (once per VM)
+
+* Create a 64-bit Ubuntu 20.04 VM (≥2 vCPU, ≥4 GB RAM, ≥20 GB disk).
+* Networking: **Bridged** (easier to connect to from your host) or **NAT** (fine for local use).
+* After Ubuntu installs, install VMware tools (optional but nice):
+  `sudo apt-get update && sudo apt-get install -y open-vm-tools open-vm-tools-desktop` (desktop VMs)
+
+## Install MongoDB 8.0 on Ubuntu 20.04 (Focal)
+
+> These steps use MongoDB’s **official apt repo** and work on Ubuntu 20.04 (“focal”). ([MongoDB][1])
+
+1. **Prep & confirm Ubuntu release**
+
+lsb_release -a   # should show: Distributor ID: Ubuntu; Release: 20.04; Codename: focal
+sudo apt-get update
+sudo apt-get install -y gnupg curl
+
+2. **(If present) remove Ubuntu’s older `mongodb` package**
+   MongoDB’s docs say it conflicts with the official `mongodb-org` packages. ([MongoDB][1])
+
+dpkg -l | grep -E '^ii\s+mongodb(\b|-)' && \
+  sudo apt-get purge -y mongodb mongodb-clients mongodb-server mongodb-server-core || true
+
+
+3. **Add MongoDB 8.0 GPG key**
+
+curl -fsSL https://www.mongodb.org/static/pgp/server-8.0.asc | \
+  sudo gpg -o /usr/share/keyrings/mongodb-server-8.0.gpg --dearmor
+
+4. **Add the MongoDB apt source (Focal)**
+
+echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-8.0.gpg ] \
+https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/8.0 multiverse" | \
+sudo tee /etc/apt/sources.list.d/mongodb-org-8.0.list
+
+5. **Install MongoDB**
+
+sudo apt-get update
+sudo apt-get install -y mongodb-org
+
+(If you need a fixed version later, pin it as shown in the docs.) ([MongoDB][1])
+
+6. **Start & enable the service**
+
+sudo systemctl enable --now mongod
+sudo systemctl status mongod --no-pager
+
+(If you ever see “Unit mongod.service not found”, run `sudo systemctl daemon-reload` then start again.) ([MongoDB][1])
+
+7. **Test with the MongoDB Shell (mongosh)**
+
+mongosh --eval 'db.runCommand({buildInfo:1})'
+
+If `mongosh` isn’t found, install it:
+
+sudo apt-get install -y mongodb-mongosh
+
+(MongoDB’s shell install docs are here if you ever need them.) ([MongoDB][2])
+
+
+## (Optional) Allow connections from your host machine
+
+If your VM is **bridged**, your host can hit the VM’s IP directly. If it’s **NAT**, you’ll typically connect from the host to the VM’s NAT IP (still fine on a local network).
+
+1. **Bind MongoDB to all interfaces (or just the VM’s IP)**
+   Edit `/etc/mongod.conf`:
+
+sudo nano /etc/mongod.conf
+# In the 'net:' section, change:
+#   bindIp: 127.0.0.1
+# to either:
+#   bindIp: 0.0.0.0
+# or:
+#   bindIp: 127.0.0.1,<your_vm_ip>
+
+Then:
+sudo systemctl restart mongod
+
+2. **Open the port safely (UFW)**
+   Allow only your host’s IP (replace 192.168.1.50 with your host’s IP):
+
+sudo ufw allow from 192.168.1.50 to any port 27017 proto tcp
+sudo ufw reload
+
+## (Recommended) Turn on authentication
+
+1. **Create an admin user**
+
+mongosh
+use admin
+db.createUser({
+  user: "admin",
+  pwd:  "ChangeThisStrongPassword!",
+  roles: ["root"]
+})
+exit
+
+2. **Enable auth and restart**
+
+sudo nano /etc/mongod.conf
+# Add (or un-comment) under top-level:
+# security:
+#   authorization: enabled
+sudo systemctl restart mongod
+
+3. **Reconnect as admin**
+
+mongosh -u admin -p --authenticationDatabase admin
+
+### That’s it!
+
+You now have MongoDB running as a systemd service on Ubuntu 20.04 inside VMware, with optional remote access and auth. 
+The exact commands above are based on MongoDB’s official Ubuntu install guide (which explicitly lists **Ubuntu 20.04 (Focal)** as supported for **MongoDB 8.0**). ([MongoDB][1])
+
+If you hit any errors during `apt update` or `mongod` startup, paste them here and I’ll troubleshoot fast.
+
+[1]: https://www.mongodb.com/docs/manual/tutorial/install-mongodb-on-ubuntu/ "Install MongoDB Community Edition on Ubuntu - Database Manual - MongoDB Docs"
+[2]: https://www.mongodb.com/docs/mongodb-shell/install/?utm_source=chatgpt.com "Install mongosh - MongoDB"
