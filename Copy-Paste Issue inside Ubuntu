@@ -1,0 +1,37 @@
+a common VMware Workstation quirk — copy-paste between the host and your Ubuntu VM doesn’t work out-of-the-box unless VMware Tools (or the open-source equivalent) is properly installed in the guest.
+
+Since you’re running Ubuntu 20.04.3 inside VMware Workstation, here’s how to get copy-paste working:
+
+1. Install open-vm-tools & open-vm-tools-desktop
+
+These packages handle clipboard sharing, drag-and-drop, and screen resizing.
+
+sudo apt update
+sudo apt install -y open-vm-tools open-vm-tools-desktop
+
+2. Reboot the VM
+sudo reboot
+
+3. Enable Clipboard Sharing in VMware Workstation
+
+On your host machine:
+
+Shut down the VM (don’t just suspend).
+
+In VMware Workstation, right-click your VM → Settings.
+
+Go to Options tab → Guest Isolation.
+
+Tick:
+Enable copy and paste
+Enable drag and drop
+Click OK, then start the VM.
+
+4. Test copy-paste
+
+Try copying text from your host into a terminal in Ubuntu.
+If it still doesn’t work in Terminal, test in Text Editor — sometimes terminal clipboard requires keyboard shortcuts:
+
+Paste into terminal: Ctrl+Shift+V (not Ctrl+V)
+
+Copy from terminal: Ctrl+Shift+C
